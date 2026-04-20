@@ -1,0 +1,58 @@
+# =========================
+# Flutter / Dart
+# =========================
+.dart_tool/
+.packages
+.pub/
+.pub-cache/
+build/
+coverage/
+
+# Flutter generated
+.flutter-plugins
+.flutter-plugins-dependencies
+
+# Keep this (important for project consistency)
+# .metadata  
+
+# =========================
+# Android
+# =========================
+android/.gradle/
+android/app/build/
+android/build/
+local.properties
+
+# =========================
+# iOS
+# =========================
+ios/Pods/
+ios/.symlinks/
+ios/Flutter/.last_build_id
+
+# =========================
+# Logs & temp
+# =========================
+*.log
+*.tmp
+*.swp
+*.lock
+
+# =========================
+# IDEs
+# =========================
+.idea/
+*.iml
+.vscode/
+
+# =========================
+# System files
+# =========================
+.DS_Store
+Thumbs.db
+
+# =========================
+# Secrets / Environment
+# =========================
+.env
+.env.*

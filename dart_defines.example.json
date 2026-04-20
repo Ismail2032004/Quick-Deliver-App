@@ -1,0 +1,9 @@
+{
+  "SUPABASE_URL": "https://your-project.supabase.co",
+  "SUPABASE_ANON_KEY": "your-anon-key",
+  "QUICKDELIVER_DEMO_MODE": "false",
+  "OSM_TILE_URL_TEMPLATE": "https://tile.openstreetmap.org/{z}/{x}/{y}.png",
+  "OSM_TILE_ATTRIBUTION": "OpenStreetMap contributors",
+  "OSRM_ROUTE_BASE_URL": "https://router.project-osrm.org",
+  "SUPABASE_PUSH_FUNCTION_NAME": "send-push-notification"
+}

@@ -1,0 +1,22 @@
+rules_version = '2';
+service firebase.storage {
+  match /b/{bucket}/o {
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function hasRole(role) {
+      return isSignedIn() && request.auth.token.role == role;
+    }
+
+    match /product_images/{allPaths=**} {
+      allow read: if true;
+      allow write: if hasRole('owner');
+    }
+
+    match /proof_images/{allPaths=**} {
+      allow read: if isSignedIn();
+      allow write: if hasRole('rider');
+    }
+  }
+}
