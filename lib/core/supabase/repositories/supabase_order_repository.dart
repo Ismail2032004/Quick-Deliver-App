@@ -150,16 +150,19 @@ class SupabaseOrderRepository implements OrderRepository {
     required DeliveryProgressStatus status,
   }) async {
     final now = DateTime.now().toIso8601String();
-    await _client.from(SupabaseTables.deliveries).upsert({
-      'order_id': orderId,
-      'rider_id': riderId,
-      'status': status.storageValue,
-      'assigned_at': now,
-      'picked_up_at': status.index >= DeliveryProgressStatus.pickedUp.index
-          ? now
-          : null,
-      'delivered_at': status == DeliveryProgressStatus.delivered ? now : null,
-    });
+    await _client.from(SupabaseTables.deliveries).upsert(
+      {
+        'order_id': orderId,
+        'rider_id': riderId,
+        'status': status.storageValue,
+        'assigned_at': now,
+        'picked_up_at': status.index >= DeliveryProgressStatus.pickedUp.index
+            ? now
+            : null,
+        'delivered_at': status == DeliveryProgressStatus.delivered ? now : null,
+      },
+      onConflict: 'order_id',
+    );
   }
 
   @override

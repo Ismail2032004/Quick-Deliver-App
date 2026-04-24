@@ -31,13 +31,24 @@ class QuickDeliverApp extends ConsumerWidget {
       themeMode: settings.themeMode,
       builder: (context, child) {
         final mediaQuery = MediaQuery.of(context);
+        final screenWidth = mediaQuery.size.width;
+        final maxContentWidth = switch (screenWidth) {
+          < 600 => screenWidth,
+          < 900 => 640.0,
+          _ => 760.0,
+        };
         return MediaQuery(
           data: mediaQuery.copyWith(
             textScaler: TextScaler.linear(settings.textScaleFactor),
             disableAnimations: settings.reducedMotionEnabled,
             boldText: settings.highContrastEnabled,
           ),
-          child: child ?? const SizedBox.shrink(),
+          child: Center(
+            child: ConstrainedBox(
+              constraints: BoxConstraints(maxWidth: maxContentWidth),
+              child: child ?? const SizedBox.shrink(),
+            ),
+          ),
         );
       },
       routerConfig: router,

@@ -23,6 +23,9 @@ import '../../../operations/domain/models/rider_location.dart';
 import '../../../operations/presentation/controllers/tracking_map_providers.dart';
 import '../../../operations/presentation/controllers/delivery_hub_controller.dart';
 
+const _showRawProofUploadError = true;
+const _showRawAcceptDeliveryError = true;
+
 class RiderDeliveryDetailScreen extends ConsumerWidget {
   const RiderDeliveryDetailScreen({super.key, required this.orderId});
 
@@ -394,11 +397,13 @@ class RiderDeliveryDetailScreen extends ConsumerWidget {
                               ScaffoldMessenger.of(context).showSnackBar(
                                 SnackBar(
                                   content: Text(
-                                    deliveryUserMessage(
-                                      error,
-                                      fallback:
-                                          'Proof upload failed. Please try again.',
-                                    ),
+                                    _showRawProofUploadError
+                                        ? 'Proof upload error: ${error.toString()}'
+                                        : deliveryUserMessage(
+                                            error,
+                                            fallback:
+                                                'Proof upload failed. Please try again.',
+                                          ),
                                   ),
                                 ),
                               );
@@ -814,11 +819,13 @@ class _RiderDetailActionBar extends ConsumerWidget {
                   ScaffoldMessenger.of(context).showSnackBar(
                     SnackBar(
                       content: Text(
-                        deliveryUserMessage(
-                          error,
-                          fallback:
-                              'We couldn\'t accept this delivery. Please try again.',
-                        ),
+                        _showRawAcceptDeliveryError
+                            ? 'Accept delivery error: ${error.toString()}'
+                            : deliveryUserMessage(
+                                error,
+                                fallback:
+                                    'We couldn\'t accept this delivery. Please try again.',
+                              ),
                       ),
                     ),
                   );

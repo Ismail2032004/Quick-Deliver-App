@@ -642,7 +642,7 @@ extension _RiderAvailabilityX on _RiderAvailability {
       _RiderAvailability.standby =>
         '$firstName is not sharing an active location right now, but assignment is still available in this testing build so you can switch accounts and continue later.',
       _RiderAvailability.offline =>
-        '$firstName has no active location right now, so assignment stays unavailable until the rider comes online.',
+        '$firstName is not sharing a live location right now, but you can still assign the delivery and the rider can continue when they come online.',
     };
   }
 
@@ -651,12 +651,12 @@ extension _RiderAvailabilityX on _RiderAvailability {
       _RiderAvailability.available => 'Assign',
       _RiderAvailability.busy => 'Reassign',
       _RiderAvailability.standby => 'Assign',
-      _RiderAvailability.offline => 'Offline',
+      _RiderAvailability.offline => 'Assign',
     };
   }
 
   bool get canAssign {
-    return this != _RiderAvailability.offline;
+    return true;
   }
 }
 
@@ -696,7 +696,7 @@ _RiderAvailability _riderAvailabilityFor({
     return _RiderAvailability.standby;
   }
 
-  return _RiderAvailability.offline;
+  return _RiderAvailability.standby;
 }
 
 Future<void> _showRiderAssignmentSheet(
@@ -886,33 +886,58 @@ class OwnerManageTab extends ConsumerWidget {
         : hub.businesses
               .where((business) => business.ownerId == owner.id)
               .toList(growable: false);
+    final hasLoadableDemoTemplates =
+        owner != null &&
+        hub.businesses.any(
+          (business) =>
+              business.ownerId != owner.id &&
+              (business.name == 'Campus Bites' ||
+                  business.name == 'City Pharmacy'),
+        ) &&
+        _supportsSingleDeviceAssignmentTesting;
+    final canLoadDemoStorefronts =
+        owner != null &&
+        ownedBusinesses.isEmpty &&
+        hasLoadableDemoTemplates;
 
     if (ownedBusinesses.isEmpty) {
       return EmptyStateView(
-        title: 'Create your storefront',
+        title: canLoadDemoStorefronts
+            ? 'Load demo storefronts'
+            : 'Create your storefront',
         message:
-            'Set up your business profile so customers can discover your store and place real orders.',
-        actionLabel: 'Create business profile',
-        onAction: () => _showEditBusinessDialog(
-          context,
-          ref,
-          Business(
-            id: 'biz-${DateTime.now().millisecondsSinceEpoch}',
-            ownerId: owner?.id ?? 'owner-missing',
-            name: '',
-            category: '',
-            description: '',
-            address: '',
-            phoneNumber: owner?.phoneNumber ?? '',
-            imageUrl: '',
-            rating: 4.5,
-            estimatedDeliveryMinutes: 30,
-            latitude: 5.6037,
-            longitude: -0.1870,
-            tags: const [],
-          ),
-          isNew: true,
-        ),
+            canLoadDemoStorefronts
+            ? 'This account does not own the seeded storefront rows yet. Load demo copies of Campus Bites and City Pharmacy into your owner account so you can demonstrate create, update, and delete actions.'
+            : 'Set up your business profile so customers can discover your store and place real orders.',
+        actionLabel: canLoadDemoStorefronts
+            ? 'Load demo storefronts'
+            : 'Create business profile',
+        onAction: () async {
+          if (canLoadDemoStorefronts && owner != null) {
+            await _loadDemoStorefronts(context, ref, owner: owner, hub: hub);
+            return;
+          }
+          await _showEditBusinessDialog(
+            context,
+            ref,
+            Business(
+              id: 'biz-${DateTime.now().millisecondsSinceEpoch}',
+              ownerId: owner?.id ?? 'owner-missing',
+              name: '',
+              category: '',
+              description: '',
+              address: '',
+              phoneNumber: owner?.phoneNumber ?? '',
+              imageUrl: '',
+              rating: 4.5,
+              estimatedDeliveryMinutes: 30,
+              latitude: 5.6037,
+              longitude: -0.1870,
+              tags: const [],
+            ),
+            isNew: true,
+          );
+        },
       );
     }
 
@@ -923,6 +948,46 @@ class OwnerManageTab extends ConsumerWidget {
           subtitle:
               'Each business card below is scoped to the signed-in owner, so counts, products, and incoming orders stay consistent.',
         ),
+        if (hasLoadableDemoTemplates) ...[
+          const SizedBox(height: 16),
+          Card(
+            child: Padding(
+              padding: const EdgeInsets.all(18),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'Demo storefront bootstrap',
+                    style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                      fontWeight: FontWeight.w800,
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
+                    'If the seeded Campus Bites and City Pharmacy rows are not editable from this owner account, load owner-linked demo copies here so you can present CRUD actions cleanly.',
+                    style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                      color: const Color(0xFF475569),
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  PrimaryButton(
+                    label: 'Load demo storefronts',
+                    icon: Icons.storefront_rounded,
+                    variant: ButtonVariant.tonal,
+                    onPressed: owner == null
+                        ? null
+                        : () => _loadDemoStorefronts(
+                              context,
+                              ref,
+                              owner: owner,
+                              hub: hub,
+                            ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ],
         const SizedBox(height: 16),
         for (final business in ownedBusinesses) ...[
           _BusinessManagementCard(
@@ -940,17 +1005,122 @@ class OwnerManageTab extends ConsumerWidget {
               businessId: business.id,
               existing: product,
             ),
-            onToggleProduct: (product) => ref
-                .read(deliveryHubProvider.notifier)
-                .updateProduct(
-                  product.copyWith(isAvailable: !product.isAvailable),
-                ),
-            onDeleteProduct: (product) =>
-                ref.read(deliveryHubProvider.notifier).deleteProduct(product.id),
+            onToggleProduct: (product) async {
+              try {
+                await ref.read(deliveryHubProvider.notifier).updateProduct(
+                      product.copyWith(isAvailable: !product.isAvailable),
+                    );
+                if (!context.mounted) {
+                  return;
+                }
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(
+                    content: Text(
+                      '${product.name} is now ${product.isAvailable ? 'hidden' : 'available'}.',
+                    ),
+                  ),
+                );
+              } catch (error) {
+                if (!context.mounted) {
+                  return;
+                }
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(content: Text(error.toString())),
+                );
+              }
+            },
+            onDeleteProduct: (product) async {
+              try {
+                await ref
+                    .read(deliveryHubProvider.notifier)
+                    .deleteProduct(product.id);
+                if (!context.mounted) {
+                  return;
+                }
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(content: Text('${product.name} was deleted.')),
+                );
+              } catch (error) {
+                if (!context.mounted) {
+                  return;
+                }
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(content: Text(error.toString())),
+                );
+              }
+            },
           ),
           const SizedBox(height: 16),
         ],
       ],
+    );
+  }
+
+  Future<void> _loadDemoStorefronts(
+    BuildContext context,
+    WidgetRef ref, {
+    required AppUser owner,
+    required DeliveryHubState hub,
+  }) async {
+    final templates = hub.businesses
+        .where(
+          (business) =>
+              business.ownerId != owner.id &&
+              (business.name == 'Campus Bites' ||
+                  business.name == 'City Pharmacy'),
+        )
+        .toList(growable: false);
+    if (templates.isEmpty) {
+      if (!context.mounted) {
+        return;
+      }
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text(
+            'No demo storefront templates are available to load right now.',
+          ),
+        ),
+      );
+      return;
+    }
+
+    for (var index = 0; index < templates.length; index++) {
+      final template = templates[index];
+      final businessId =
+          'biz-${owner.id}-${DateTime.now().millisecondsSinceEpoch}-$index';
+      final clonedBusiness = template.copyWith(
+        id: businessId,
+        ownerId: owner.id,
+        phoneNumber: owner.phoneNumber ?? template.phoneNumber,
+      );
+      await ref.read(deliveryHubProvider.notifier).updateBusiness(clonedBusiness);
+
+      final templateProducts = hub.products
+          .where((product) => product.businessId == template.id)
+          .toList(growable: false);
+      for (var productIndex = 0;
+          productIndex < templateProducts.length;
+          productIndex++) {
+        final product = templateProducts[productIndex];
+        await ref.read(deliveryHubProvider.notifier).addProduct(
+              product.copyWith(
+                id:
+                    'prd-${businessId}-${DateTime.now().millisecondsSinceEpoch}-$productIndex',
+                businessId: businessId,
+              ),
+            );
+      }
+    }
+
+    if (!context.mounted) {
+      return;
+    }
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text(
+          'Demo storefront copies loaded into this owner account. You can now edit the businesses and products normally.',
+        ),
+      ),
     );
   }
 
@@ -1052,7 +1222,7 @@ class OwnerManageTab extends ConsumerWidget {
                 child: const Text('Cancel'),
               ),
               FilledButton(
-                onPressed: () {
+                onPressed: () async {
                   if (nameController.text.trim().isEmpty ||
                       addressController.text.trim().isEmpty ||
                       phoneController.text.trim().isEmpty) {
@@ -1067,9 +1237,8 @@ class OwnerManageTab extends ConsumerWidget {
                   }
                   final deliveryMinutes =
                       int.tryParse(deliveryMinutesController.text.trim()) ?? 30;
-                  ref
-                      .read(deliveryHubProvider.notifier)
-                      .updateBusiness(
+                  try {
+                    await ref.read(deliveryHubProvider.notifier).updateBusiness(
                         business.copyWith(
                           name: nameController.text.trim(),
                           address: addressController.text.trim(),
@@ -1082,7 +1251,30 @@ class OwnerManageTab extends ConsumerWidget {
                           estimatedDeliveryMinutes: deliveryMinutes,
                         ),
                       );
-                  Navigator.of(dialogContext).pop();
+                    if (!dialogContext.mounted) {
+                      return;
+                    }
+                    Navigator.of(dialogContext).pop();
+                    if (!context.mounted) {
+                      return;
+                    }
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(
+                        content: Text(
+                          isNew
+                              ? 'Business profile created successfully.'
+                              : 'Storefront updated successfully.',
+                        ),
+                      ),
+                    );
+                  } catch (error) {
+                    if (!dialogContext.mounted) {
+                      return;
+                    }
+                    ScaffoldMessenger.of(dialogContext).showSnackBar(
+                      SnackBar(content: Text(error.toString())),
+                    );
+                  }
                 },
                 child: Text(isNew ? 'Create' : 'Save'),
               ),
@@ -1180,7 +1372,7 @@ class OwnerManageTab extends ConsumerWidget {
                   child: const Text('Cancel'),
                 ),
                 FilledButton(
-                  onPressed: () {
+                  onPressed: () async {
                     final parsedPrice =
                         double.tryParse(priceController.text.trim()) ?? 0;
                     if (nameController.text.trim().isEmpty ||
@@ -1195,10 +1387,9 @@ class OwnerManageTab extends ConsumerWidget {
                       );
                       return;
                     }
-                    if (existing == null) {
-                      ref
-                          .read(deliveryHubProvider.notifier)
-                          .addProduct(
+                    try {
+                      if (existing == null) {
+                        await ref.read(deliveryHubProvider.notifier).addProduct(
                             Product(
                               id: 'prd-${DateTime.now().millisecondsSinceEpoch}',
                               businessId: businessId,
@@ -1214,10 +1405,10 @@ class OwnerManageTab extends ConsumerWidget {
                               imageSource: ProductImageSource.localMock,
                             ),
                           );
-                    } else {
-                      ref
-                          .read(deliveryHubProvider.notifier)
-                          .updateProduct(
+                      } else {
+                        await ref
+                            .read(deliveryHubProvider.notifier)
+                            .updateProduct(
                             existing.copyWith(
                               name: nameController.text.trim(),
                               description: descriptionController.text.trim(),
@@ -1226,8 +1417,31 @@ class OwnerManageTab extends ConsumerWidget {
                               imageUrl: imageController.text.trim(),
                             ),
                           );
+                      }
+                      if (!dialogContext.mounted) {
+                        return;
+                      }
+                      Navigator.of(dialogContext).pop();
+                      if (!context.mounted) {
+                        return;
+                      }
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(
+                          content: Text(
+                            existing == null
+                                ? 'Product created successfully.'
+                                : 'Product updated successfully.',
+                          ),
+                        ),
+                      );
+                    } catch (error) {
+                      if (!dialogContext.mounted) {
+                        return;
+                      }
+                      ScaffoldMessenger.of(dialogContext).showSnackBar(
+                        SnackBar(content: Text(error.toString())),
+                      );
                     }
-                    Navigator.of(dialogContext).pop();
                   },
                   child: const Text('Save'),
                 ),

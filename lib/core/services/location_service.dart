@@ -184,19 +184,32 @@ class LocationService {
       }
       final placemark = placemarks.first;
       final parts = [
+        placemark.name,
         placemark.street,
+        placemark.thoroughfare,
+        placemark.subThoroughfare,
         placemark.subLocality,
         placemark.locality,
+        placemark.subAdministrativeArea,
         placemark.administrativeArea,
+        placemark.country,
       ]
           .whereType<String>()
           .map((item) => item.trim())
-          .where((item) => item.isNotEmpty)
+          .where((item) => item.isNotEmpty && !_looksLikeCoordinates(item))
           .toList(growable: false);
-      if (parts.isEmpty) {
+      final dedupedParts = <String>[];
+      for (final part in parts) {
+        if (!dedupedParts.any(
+          (existing) => existing.toLowerCase() == part.toLowerCase(),
+        )) {
+          dedupedParts.add(part);
+        }
+      }
+      if (dedupedParts.isEmpty) {
         return '${latitude.toStringAsFixed(5)}, ${longitude.toStringAsFixed(5)}';
       }
-      return parts.join(', ');
+      return dedupedParts.join(', ');
     } catch (_) {
       return '${latitude.toStringAsFixed(5)}, ${longitude.toStringAsFixed(5)}';
     }
@@ -259,5 +272,13 @@ class LocationService {
       return pieces.first;
     }
     return 'Current device location';
+  }
+
+  bool _looksLikeCoordinates(String value) {
+    final normalized = value.trim();
+    if (normalized.isEmpty) {
+      return false;
+    }
+    return RegExp(r'^-?\d+(\.\d+)?\s*,\s*-?\d+(\.\d+)?$').hasMatch(normalized);
   }
 }

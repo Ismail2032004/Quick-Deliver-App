@@ -20,6 +20,8 @@ import '../../../settings/presentation/controllers/app_settings_controller.dart'
 import '../../../account/presentation/controllers/account_preferences_controller.dart';
 import '../../../operations/presentation/controllers/delivery_hub_controller.dart';
 
+const _showRawAcceptDeliveryError = true;
+
 class RiderDispatchTab extends ConsumerWidget {
   const RiderDispatchTab({super.key});
 
@@ -348,11 +350,13 @@ class RiderDeliveriesTab extends ConsumerWidget {
                                         ScaffoldMessenger.of(context).showSnackBar(
                                           SnackBar(
                                             content: Text(
-                                              deliveryUserMessage(
-                                                error,
-                                                fallback:
-                                                    'We couldn\'t accept this delivery. Please try again.',
-                                              ),
+                                              _showRawAcceptDeliveryError
+                                                  ? 'Accept delivery error: ${error.toString()}'
+                                                  : deliveryUserMessage(
+                                                      error,
+                                                      fallback:
+                                                          'We couldn\'t accept this delivery. Please try again.',
+                                                    ),
                                             ),
                                           ),
                                         );

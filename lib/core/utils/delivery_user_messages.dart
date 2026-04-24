@@ -5,6 +5,15 @@ String deliveryUserMessage(
   final raw = error.toString();
   final normalized = raw.toLowerCase();
 
+  if (normalized.contains('deliveries_status_check') ||
+      (normalized.contains('check constraint') &&
+          normalized.contains('deliveries'))) {
+    return 'The Supabase deliveries schema is outdated for the current rider workflow. Apply the delivery status alignment migration, then try again.';
+  }
+  if (normalized.contains('accepted') &&
+      normalized.contains('postgrestexception')) {
+    return 'Rider acceptance is failing because the backend does not yet allow the accepted delivery status. Apply the delivery status alignment migration, then try again.';
+  }
   if (normalized.contains('postgrestexception') ||
       normalized.contains('postgres') ||
       normalized.contains('check constraint')) {
@@ -29,8 +38,14 @@ String deliveryUserMessage(
       normalized.contains('selected image is no longer available')) {
     return 'No image was captured. Please try again.';
   }
+  if (normalized.contains('row-level security') ||
+      normalized.contains('new row violates row-level security') ||
+      normalized.contains('permission denied for table objects') ||
+      normalized.contains('access denied')) {
+    return 'Proof upload is blocked by Supabase Storage permissions. Apply the storage policies migration, then try again.';
+  }
   if (normalized.contains('storage') || normalized.contains('bucket')) {
-    return 'We couldn\'t upload the proof image. Please try again.';
+    return 'Supabase Storage rejected the proof upload. Confirm the delivery-proofs bucket and storage policies are applied, then try again.';
   }
   if (normalized.contains('location')) {
     return 'We couldn\'t update the rider location right now. Please try again.';

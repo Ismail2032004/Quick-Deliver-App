@@ -153,25 +153,12 @@ class DeliveryHubController extends StateNotifier<DeliveryHubState> {
 
   Future<void> updateBusiness(Business updatedBusiness) async {
     if (_demoMode) {
-      final exists = state.businesses.any(
-        (business) => business.id == updatedBusiness.id,
-      );
-      state = state.copyWith(
-        businesses: exists
-            ? [
-                for (final business in state.businesses)
-                  if (business.id == updatedBusiness.id)
-                    updatedBusiness
-                  else
-                    business,
-              ]
-            : [updatedBusiness, ...state.businesses],
-      );
+      _upsertBusinessInState(updatedBusiness);
       return;
     }
-    await _businessRepository.saveBusiness(
-      await _saveBusinessImageIfNeeded(updatedBusiness),
-    );
+    final savedBusiness = await _saveBusinessImageIfNeeded(updatedBusiness);
+    await _businessRepository.saveBusiness(savedBusiness);
+    _upsertBusinessInState(savedBusiness);
   }
 
   Future<void> addProduct(Product product) async {
@@ -181,6 +168,13 @@ class DeliveryHubController extends StateNotifier<DeliveryHubState> {
     }
     final savedProduct = await _saveProductImageIfNeeded(product);
     await _productRepository.saveProduct(savedProduct);
+    state = state.copyWith(
+      products: [
+        savedProduct,
+        for (final item in state.products)
+          if (item.id != savedProduct.id) item,
+      ],
+    );
   }
 
   Future<void> updateProduct(Product updatedProduct) async {
@@ -195,6 +189,12 @@ class DeliveryHubController extends StateNotifier<DeliveryHubState> {
     }
     final savedProduct = await _saveProductImageIfNeeded(updatedProduct);
     await _productRepository.saveProduct(savedProduct);
+    state = state.copyWith(
+      products: [
+        for (final product in state.products)
+          if (product.id == savedProduct.id) savedProduct else product,
+      ],
+    );
   }
 
   Future<void> deleteProduct(String productId) async {
@@ -207,6 +207,11 @@ class DeliveryHubController extends StateNotifier<DeliveryHubState> {
       return;
     }
     await _productRepository.deleteProduct(productId);
+    state = state.copyWith(
+      products: state.products
+          .where((product) => product.id != productId)
+          .toList(growable: false),
+    );
   }
 
   Future<DeliveryOrder> createOrder({
@@ -903,6 +908,18 @@ class DeliveryHubController extends StateNotifier<DeliveryHubState> {
       }
     }
     return null;
+  }
+
+  void _upsertBusinessInState(Business business) {
+    final exists = state.businesses.any((item) => item.id == business.id);
+    state = state.copyWith(
+      businesses: exists
+          ? [
+              for (final item in state.businesses)
+                if (item.id == business.id) business else item,
+            ]
+          : [business, ...state.businesses],
+    );
   }
 
   List<DeliveryOrder> _mergeOrder(

@@ -27,6 +27,8 @@ Apply these migrations in order:
 2. `supabase/migrations/20260415_000002_push_devices.sql`
 3. `supabase/migrations/20260415_000003_order_destination_snapshot.sql`
 4. `supabase/migrations/20260416_000004_role_access_and_delivery_review.sql`
+5. `supabase/migrations/20260420_000005_storage_object_policies.sql`
+6. `supabase/migrations/20260420_000006_delivery_status_alignment.sql`
 
 Primary tables in use:
 
